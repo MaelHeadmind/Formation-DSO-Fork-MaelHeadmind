@@ -16,7 +16,7 @@ init()
 #Permet de définir l'application Flask
 app = Flask(__name__)
 
-#Permet d'exécuter le fichie HTML
+#Permet d'exécuter le fichie HTML 
 @app.route('/')
 def index():
     return render_template('index.html')

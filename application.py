@@ -9,6 +9,7 @@ from colorama import Style, Fore, init
 from flask import Flask, render_template, send_file, request, redirect, url_for, abort, render_template_string, send_from_directory
 from pathlib import Path
 import sys
+from werkzeug.utils import secure_filename
 
 #Init est utilisé pour l'ajout de coleur dans le code
 init()
@@ -44,14 +45,19 @@ def uploaded():
             err = "No selected file"
             return render_template('error.html', err=err)
             #return f'{Fore.RED}[-] No selected file{Fore.RESET}'
-        file_name = file.filename
+        file_name = secure_filename(file.filename)
         #Check si le fichier entré est bon (test pour répondre à CodeQL)
-        if ".." in file_name or "/" in file_name or "\\" in file_name:
+        if file_name == "":
             err = "Invalid filename"
             return render_template('error.html', err=err)
             #raise ValueError(f"{Fore.RED}[-] Invalid filename : {file.filename}{Fore.RESET}")
         else:
-            file_content = process_file(file_name)
+            base_dir = (Path(__file__).parent / "files").resolve()
+            safe_path = (base_dir / file_name).resolve()
+            if base_dir not in safe_path.parents and safe_path != base_dir:
+                err = "Invalid filename"
+                return render_template('error.html', err=err)
+            file_content = process_file(str(safe_path))
             
             string_file_content = str(file_content)
             if string_file_content.__contains__('Errno'):
@@ -79,11 +85,12 @@ def writefile(full_path, content):
 
 
 #Utilisation de la fonction vulnérable selon le POC de la CVE-2020-1747
-def process_file(file_name):
+def process_file(file_path):
     #Chargement du fichier YAML
-    if ".yaml" in file_name or ".yml" in file_name:
+    safe_name = Path(file_path).name.lower()
+    if safe_name.endswith(".yaml") or safe_name.endswith(".yml"):
         try:
-            with open(file_name,'rb') as f:
+            with open(file_path,'rb') as f:
                 content = f.read()
                 data = yaml.load(content, Loader=yaml.FullLoader) # Using vulnerable FullLoader
         except Exception as er:
